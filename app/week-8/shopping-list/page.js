@@ -1,12 +1,14 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUserAuth } from '../_utils/auth-context'; // Adjust path if needed
 import NewItem from './new-item';
 import ItemList from './item-list';
 import MealIdeas from './meal-ideas';
-import itemsData from './items.json';
 import { useRouter } from 'next/navigation'; // Use Next.js router
+
+// Import Firestore service functions
+import { getItems, addItem } from '../../week-10/_services/shopping-list-service'; // Correct path
 
 const cleanItemName = (text) => {
   let cleanedText = text.split(",")[0].trim();
@@ -17,24 +19,38 @@ const cleanItemName = (text) => {
 const Page = () => {
   const { user } = useUserAuth(); // Get user from context
   const router = useRouter(); // Get Next.js router
+  const [items, setItems] = useState([]);
+  const [selectedItemName, setSelectedItemName] = useState('');
 
   // Redirect to landing page if user is not authenticated
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) {
       router.push('/'); // Redirect to the landing page
+    } else {
+      // Load items from Firestore when user is authenticated
+      const loadItems = async () => {
+        try {
+          const userItems = await getItems(user.uid);
+          setItems(userItems);
+        } catch (error) {
+          console.error("Error fetching items:", error);
+        }
+      };
+      loadItems();
     }
   }, [user, router]);
 
   if (!user) {
-    return <p>Loading...</p>; //Show a loading message while checking authentication
+    return <p>Loading...</p>; // Show a loading message while checking authentication
   }
 
-  const [items, setItems] = React.useState(itemsData);
-  const [selectedItemName, setSelectedItemName] = React.useState('');
-
-  const handleAddItem = (item) => {
-    const newItem = { ...item, id: Math.random().toString(36).substr(2, 9) };
-    setItems([...items, newItem]);
+  const handleAddItem = async (item) => {
+    try {
+      const newItemId = await addItem(user.uid, item);
+      setItems([...items, { ...item, id: newItemId }]);
+    } catch (error) {
+      console.error("Error adding item:", error);
+    }
   };
 
   const handleItemSelect = (itemName) => {
